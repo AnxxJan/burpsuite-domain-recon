@@ -1,11 +1,8 @@
 package burp.scanner;
 
 import burp.api.montoya.MontoyaApi;
-import org.apache.hc.client5.http.classic.methods.HttpGet;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
+import burp.api.montoya.http.message.requests.HttpRequest;
+import burp.api.montoya.http.message.responses.HttpResponse;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -254,15 +251,15 @@ public class TechnologyDetector {
         
         TechnologyDetectionResult result = new TechnologyDetectionResult(domain);
         
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            tryHttpsDetection(domain, httpClient, result);
+        try {
+            tryHttpsDetection(domain, result);
             
             if (!result.isSuccess()) {
-                tryHttpDetection(domain, httpClient, result);
+                tryHttpDetection(domain, result);
             }
             
         } catch (Exception e) {
-            api.logging().logToError("Error creating HTTP client: " + e.getMessage());
+            api.logging().logToError("Error detecting technologies: " + e.getMessage());
             result.setSuccess(false);
             result.setError(e.getMessage());
         }
@@ -273,29 +270,29 @@ public class TechnologyDetector {
     /**
      * Try technology detection using HTTPS
      */
-    private TechnologyDetectionResult tryHttpsDetection(String domain, CloseableHttpClient httpClient, TechnologyDetectionResult result) {
+    private TechnologyDetectionResult tryHttpsDetection(String domain, TechnologyDetectionResult result) {
         String url = "https://" + domain;
-        return performDetection(url, httpClient, result);
+        return performDetection(url, result);
     }
     
     /**
      * Try technology detection using HTTP
      */
-    private TechnologyDetectionResult tryHttpDetection(String domain, CloseableHttpClient httpClient, TechnologyDetectionResult result) {
+    private TechnologyDetectionResult tryHttpDetection(String domain, TechnologyDetectionResult result) {
         String url = "http://" + domain;
-        return performDetection(url, httpClient, result);
+        return performDetection(url, result);
     }
     
     /**
-     * Perform technology detection for given URL
+     * Perform technology detection for given URL using Montoya API
      */
-    @SuppressWarnings("deprecation")
-    private TechnologyDetectionResult performDetection(String url, CloseableHttpClient httpClient, TechnologyDetectionResult result) {
-        HttpGet request = new HttpGet(url);
-        request.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-        
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
-            String htmlContent = EntityUtils.toString(response.getEntity());
+    private TechnologyDetectionResult performDetection(String url, TechnologyDetectionResult result) {
+        try {
+            HttpRequest request = HttpRequest.httpRequestFromUrl(url)
+                .withHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+            
+            HttpResponse response = api.http().sendRequest(request).response();
+            String htmlContent = response.bodyToString();
             Document doc = Jsoup.parse(htmlContent);
             
             checkAllSignatures(result, response, doc, htmlContent);
@@ -312,7 +309,7 @@ public class TechnologyDetector {
     /**
      * Check all technology signatures
      */
-    private void checkAllSignatures(TechnologyDetectionResult result, CloseableHttpResponse response, 
+    private void checkAllSignatures(TechnologyDetectionResult result, HttpResponse response, 
                                     Document doc, String htmlContent) {
         for (Map.Entry<String, TechnologySignature> entry : signatures.entrySet()) {
             String techName = entry.getKey();
@@ -331,7 +328,7 @@ public class TechnologyDetector {
      * Check if a technology signature matches and extract version if available
      * Returns version string if found, empty string if matched without version, null if not matched
      */
-    private String checkSignatureWithVersion(TechnologySignature signature, CloseableHttpResponse response, 
+    private String checkSignatureWithVersion(TechnologySignature signature, HttpResponse response, 
                                              Document doc, String htmlContent) {
         StringBuilder detectedVersion = new StringBuilder();
         boolean matched = false;
@@ -348,12 +345,12 @@ public class TechnologyDetector {
     /**
      * Check headers with version patterns
      */
-    private boolean checkHeaderVersions(TechnologySignature signature, CloseableHttpResponse response, 
+    private boolean checkHeaderVersions(TechnologySignature signature, HttpResponse response, 
                                        StringBuilder versionBuilder) {
         boolean matched = false;
         for (VersionPattern versionPattern : signature.getHeaderVersionPatterns()) {
-            if (response.containsHeader(versionPattern.getHeaderName())) {
-                String headerValue = response.getFirstHeader(versionPattern.getHeaderName()).getValue();
+            if (response.hasHeader(versionPattern.getHeaderName())) {
+                String headerValue = response.headerValue(versionPattern.getHeaderName());
                 if (versionPattern.getMatchPattern() == null || versionPattern.getMatchPattern().isEmpty() || 
                     headerValue.toLowerCase(Locale.ROOT).contains(versionPattern.getMatchPattern().toLowerCase(Locale.ROOT))) {
                     matched = true;
@@ -367,10 +364,10 @@ public class TechnologyDetector {
     /**
      * Check cookies
      */
-    private boolean checkCookies(TechnologySignature signature, CloseableHttpResponse response) {
+    private boolean checkCookies(TechnologySignature signature, HttpResponse response) {
         for (String cookieName : signature.getCookies()) {
-            if (response.containsHeader("Set-Cookie")) {
-                String cookieHeader = response.getFirstHeader("Set-Cookie").getValue();
+            if (response.hasHeader("Set-Cookie")) {
+                String cookieHeader = response.headerValue("Set-Cookie");
                 if (cookieHeader.toLowerCase(Locale.ROOT).contains(cookieName.toLowerCase(Locale.ROOT))) {
                     return true;
                 }

@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2025 BurpSuite Domain Reconnaissance Extension Contributors
+Copyright (c) 2025 Domain Reconnaissance Extension Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +19,21 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+----------------------------------------------------------------------
+ADDITIONAL NOTICES
+
+This software interacts with third-party public services, including but not limited to:
+- crt.sh (Certificate Transparency logs)
+- HackerTarget API (Subdomain enumeration)
+- ThreatCrowd API (Threat intelligence)
+
+Use of this software implies acceptance of and compliance with the Terms of Service
+and acceptable use policies of these third-party providers. The authors of this
+software are not affiliated with or endorsed by any of the aforementioned services.
+
+This project is an independent, open-source extension designed for integration
+with PortSwigger's Burp Suite. It is not affiliated with, endorsed, or sponsored
+by PortSwigger Ltd. "Burp Suite" is a registered trademark of PortSwigger Ltd.
+----------------------------------------------------------------------
+
